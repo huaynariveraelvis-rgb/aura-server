@@ -152,6 +152,29 @@ app.get("/audio", async (req, res) => {
 
 app.get("/health", (_req, res) => res.json({ ok: true, app: "Aura · Elvis Systems" }));
 
+// Página de inicio simple (para que la raíz no muestre "Cannot GET /").
+app.get("/", (_req, res) => {
+  res.type("html").send(`<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aura · Elvis Systems</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    font-family:system-ui,Segoe UI,Roboto,sans-serif;background:#0a0a0d;color:#f6f6f8;text-align:center}
+  .c{padding:40px}
+  h1{font-size:42px;margin:0;background:linear-gradient(120deg,#1ed760,#7c5cff);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  p{color:#9a9aa6;margin-top:10px}
+  .ok{display:inline-block;margin-top:18px;padding:8px 16px;border-radius:20px;
+    background:rgba(30,215,96,.15);color:#1ed760;font-weight:700;font-size:14px}
+  code{background:#16161c;padding:2px 8px;border-radius:6px;color:#7c5cff}
+</style></head><body><div class="c">
+  <h1>Aura</h1>
+  <p>Motor de música · Elvis Systems</p>
+  <div class="ok">● Servidor en línea</div>
+  <p style="margin-top:24px;font-size:13px">Endpoints: <code>/search?q=</code> · <code>/audio</code> · <code>/health</code></p>
+</div></body></html>`);
+});
+
 /* ---------- Arranque ---------- */
 function lanIPs() {
   const out = [];
