@@ -19,7 +19,25 @@ const PORT = process.env.PORT || 3000;
 // En la nube, YouTube suele pedir "confirma que no eres un bot". Si defines la
 // variable YTDLP_COOKIES con la ruta a un cookies.txt exportado de tu navegador,
 // yt-dlp la usará para autenticarse y evitar el bloqueo.
-const COOKIES = process.env.YTDLP_COOKIES;
+// yt-dlp REESCRIBE el archivo de cookies al terminar, pero /etc/secrets (Render)
+// es de solo lectura. Copiamos a una ruta escribible al arrancar. Si la ruta no
+// existe, desactivamos cookies para no romper las búsquedas.
+let COOKIES = process.env.YTDLP_COOKIES;
+if (COOKIES) {
+  if (fs.existsSync(COOKIES)) {
+    try {
+      const w = path.join(os.tmpdir(), "aura_cookies.txt");
+      fs.copyFileSync(COOKIES, w);
+      COOKIES = w;
+      console.log("[cookies] usando copia escribible:", w);
+    } catch (e) {
+      console.log("[cookies] no se pudo copiar, uso original:", e.message);
+    }
+  } else {
+    console.log("[cookies] archivo NO encontrado, ignorando:", COOKIES);
+    COOKIES = null;
+  }
+}
 // Clientes de YouTube a probar para esquivar el bloqueo "no eres un bot" en IPs de
 // nube. tv/ios/web_safari suelen funcionar sin cookies. Configurable por env.
 const YT_CLIENTS = process.env.YT_PLAYER_CLIENTS || "default,tv,ios,web_safari";
