@@ -97,6 +97,50 @@ async function searchSource(prefix, query, n, source) {
   }
 }
 
+// ---- Audius (catálogo grande, reproduce directo desde cualquier IP) ----
+let audiusHost = null;
+async function getAudiusHost() {
+  if (audiusHost) return audiusHost;
+  try {
+    const r = await fetch("https://api.audius.co");
+    const j = await r.json();
+    const hosts = (j.data || []).filter((h) => /^https/.test(h));
+    audiusHost = hosts[0] || "https://discoveryprovider.audius.co";
+  } catch {
+    audiusHost = "https://discoveryprovider.audius.co";
+  }
+  return audiusHost;
+}
+
+async function searchAudius(query) {
+  try {
+    const host = await getAudiusHost();
+    const r = await fetch(
+      `${host}/v1/tracks/search?query=${encodeURIComponent(query)}&app_name=Aura`
+    );
+    const j = await r.json();
+    return (j.data || [])
+      .map((t) => {
+        if (!t || !t.id) return null;
+        const art = t.artwork
+          ? t.artwork["480x480"] || t.artwork["150x150"] || ""
+          : "";
+        return {
+          id: `Audius:${t.id}`,
+          title: cleanTitle(t.title ?? "Sin título"),
+          artist: t.user?.name ?? "Audius",
+          duration: Math.round(t.duration ?? 0),
+          artwork: art,
+          url: `${host}/v1/tracks/${t.id}/stream?app_name=Aura`,
+          source: "Audius",
+        };
+      })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 function safeBase(id) {
   return id.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
@@ -140,19 +184,21 @@ app.get("/search", async (req, res) => {
   const q = String(req.query.q ?? "").trim();
   if (!q) return res.json({ tracks: [] });
   const n = 20;
-  const [yt, sc] = await Promise.all([
-    searchSource("ytsearch", q, n, "YouTube"),
-    searchSource("scsearch", q, n, "SoundCloud"),
-  ]);
-  // duración > 30s descarta de un golpe: directos/streams (duración 0) y los
-  // previews de 30s de SoundCloud. < 1800s descarta mixes/podcasts larguísimos.
+  // Fuentes que funcionan desde la nube: SoundCloud + Audius. YouTube solo si
+  // NO está desactivado (en la nube se desactiva porque bloquea IPs de datacenter).
+  const jobs = [];
+  if (!process.env.DISABLE_YOUTUBE) jobs.push(searchSource("ytsearch", q, n, "YouTube"));
+  jobs.push(searchSource("scsearch", q, n, "SoundCloud"));
+  jobs.push(searchAudius(q));
+  const results = await Promise.all(jobs);
+  // duración > 30s descarta directos/streams (0s) y previews de 30s. < 1800s descarta mixes.
   const clean = (list) => list.filter((t) => t.duration > 30 && t.duration < 1800);
-  const a = clean(yt), b = clean(sc);
+  const lists = results.map(clean);
+  // Intercalar en ronda para mezclar las fuentes.
   const tracks = [];
-  const max = Math.max(a.length, b.length);
+  const max = Math.max(0, ...lists.map((l) => l.length));
   for (let i = 0; i < max; i++) {
-    if (a[i]) tracks.push(a[i]);
-    if (b[i]) tracks.push(b[i]);
+    for (const l of lists) if (l[i]) tracks.push(l[i]);
   }
   res.json({ tracks });
 });
@@ -162,6 +208,8 @@ app.get("/audio", async (req, res) => {
   const id = String(req.query.id ?? "");
   const url = String(req.query.url ?? "");
   if (!id || !url) return res.status(400).send("Falta id o url");
+  // Audius ya da un enlace de audio directo: redirigimos (sin descargar).
+  if (id.startsWith("Audius:")) return res.redirect(url);
   try {
     const file = await downloadAudio(id, url);
     res.sendFile(file); // Express maneja Range/Accept-Ranges automáticamente.
