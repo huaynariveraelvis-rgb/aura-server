@@ -42,9 +42,11 @@ if (COOKIES) {
 // nube. tv/ios/web_safari suelen funcionar sin cookies. Configurable por env.
 const YT_CLIENTS = process.env.YT_PLAYER_CLIENTS || "default,tv,ios,web_safari";
 function ytExtra() {
-  const a = ["--extractor-args", `youtube:player_client=${YT_CLIENTS}`];
-  if (COOKIES) a.push("--cookies", COOKIES);
-  return a;
+  // Con cookies: usar el cliente web por defecto (las cookies autentican y
+  // esquivan el bloqueo). Mezclar con tv/ios rompe la autenticación.
+  if (COOKIES) return ["--cookies", COOKIES];
+  // Sin cookies: probar clientes alternativos para esquivar el bloqueo.
+  return ["--extractor-args", `youtube:player_client=${YT_CLIENTS}`];
 }
 
 const app = express();
