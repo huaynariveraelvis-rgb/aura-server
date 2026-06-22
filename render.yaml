@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: aura-server
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
