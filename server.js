@@ -20,8 +20,13 @@ const PORT = process.env.PORT || 3000;
 // variable YTDLP_COOKIES con la ruta a un cookies.txt exportado de tu navegador,
 // yt-dlp la usará para autenticarse y evitar el bloqueo.
 const COOKIES = process.env.YTDLP_COOKIES;
+// Clientes de YouTube a probar para esquivar el bloqueo "no eres un bot" en IPs de
+// nube. tv/ios/web_safari suelen funcionar sin cookies. Configurable por env.
+const YT_CLIENTS = process.env.YT_PLAYER_CLIENTS || "default,tv,ios,web_safari";
 function ytExtra() {
-  return COOKIES ? ["--cookies", COOKIES] : [];
+  const a = ["--extractor-args", `youtube:player_client=${YT_CLIENTS}`];
+  if (COOKIES) a.push("--cookies", COOKIES);
+  return a;
 }
 
 const app = express();
